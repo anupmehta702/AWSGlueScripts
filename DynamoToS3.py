@@ -8,24 +8,29 @@ from awsglue.dynamicframe import DynamicFrame
 from awsglue.dynamicframe import DynamicFrameCollection
 
 def MyTransform(glueContext, dfc) -> DynamicFrameCollection:
-    dfcCustom = dfc.select(list(dfc.keys())[0]).toDF()
-    
     from pyspark.sql.functions import when 
+    from datetime import date
+    from datetime import datetime
+    
+    dfcCustom = dfc.select(list(dfc.keys())[0]).toDF()
     
     dfcCustom = dfcCustom.withColumn('daily_updated_balance',
     when(dfcCustom.daily_balance.isNull() ,dfcCustom.current_balance)
     .otherwise(dfcCustom.daily_balance))
     dfcCustom = dfcCustom.drop('(right) ppeaccountid')
     dfcCustom.show();
-       
+    
+    # dd/mm/YY H:M:S
+    now = datetime.now().strftime("%d%m%Y%H:%M:%S")
+    
     oneFileTransform = dfcCustom.repartition(1)
-    oneFileTransform.write.json("s3://billing-account-glue-output/singleFileOutput3/")
+    oneFileTransform.write.json("s3://billing-account-glue-output/"+now+"/")
     
     
     dailyCustomerAccountBalance = DynamicFrame.fromDF(dfcCustom, glueContext, "dailyCustomerAccountBalance")
     return (DynamicFrameCollection({"CustomTransform0": dailyCustomerAccountBalance}, glueContext))
-
-## @params: [JOB_NAME]
+     
+# @params: [JOB_NAME]
 args = getResolvedOptions(sys.argv, ['JOB_NAME'])
 
 sc = SparkContext()
