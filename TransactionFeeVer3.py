@@ -9,12 +9,12 @@ from awsglue.dynamicframe import DynamicFrame
 
 def MyTransform(glueContext, dfc) -> DynamicFrameCollection:
     
-    from pyspark.sql.functions import when 
+    from pyspark.sql.functions import when,col 
     from datetime import date
     from datetime import datetime
     
     dfcCustom = dfc.select(list(dfc.keys())[0]).toDF()
-    
+    dfcCustom = dfcCustom.filter(col("sortKey").contains("CHARGE#"))
     dfcCustom.show();
     
     # dd/mm/YY H:M:S
@@ -35,8 +35,7 @@ def MySnapshotTransform(glueContext, dfc) -> DynamicFrameCollection:
     from datetime import datetime
     
     dfcSnapshotCustom = dfc.select(list(dfc.keys())[0]).toDF()
-    dfcSnapshotCustom.filter(col("snapshotSortkey").contains("TRANSACTION#")).show()
-    #dfcSnapshotCustom.show();
+    dfcSnapshotCustom = dfcSnapshotCustom.filter(col("snapshotSortkey").contains("TRANSACTION#"))
     
     # dd/mm/YY H:M:S
     now = datetime.now().strftime("%d%m%Y%H:%M:%S")
@@ -47,7 +46,7 @@ def MySnapshotTransform(glueContext, dfc) -> DynamicFrameCollection:
     
     
     snapshotBalance = DynamicFrame.fromDF(dfcSnapshotCustom, glueContext, "snapshotBalance")
-    return (DynamicFrameCollection({"CustomTransform0": snapshotBalance}, glueContext)) 
+    return (DynamicFrameCollection({"CustomTransform1": snapshotBalance}, glueContext)) 
 def MyJoinTransform(glueContext, dfc) -> DynamicFrameCollection:
     from pyspark.sql.functions import when 
     from datetime import date
