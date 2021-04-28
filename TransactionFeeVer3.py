@@ -70,7 +70,7 @@ def MyJoinTransform(glueContext, dfc) -> DynamicFrameCollection:
 def MyFileBeautificationTransform(glueContext, dfc) -> DynamicFrameCollection:
     
     from pyspark.sql import SparkSession
-    from pyspark.sql.functions import when,col 
+    from pyspark.sql.functions import lpad 
     from datetime import date
     from datetime import datetime
     
@@ -79,13 +79,16 @@ def MyFileBeautificationTransform(glueContext, dfc) -> DynamicFrameCollection:
     
     #Create DF with headers
     spark = SparkSession.builder.appName('TransactionFeed').getOrCreate()
-    simpleData = [("accountId","sortKey","chargeid","transactionid","charge_amount","snapshotSortkey","snapshotTransactionId","status")]
-    columns= ["accountId","sortKey","chargeid","transactionid","charge_amount","snapshotSortkey","snapshotTransactionId","status"]
+    simpleData = [("accountId","sortKey","chargeid","transactionid","charge_amount","snapshotSortkey","snapshotTransactionId","status","padded_charge_amount")]
+    columns= ["accountId","sortKey","chargeid","transactionid","charge_amount","snapshotSortkey","snapshotTransactionId","status","padded_charge_amount"]
     df = spark.createDataFrame(data = simpleData, schema = columns)
+    
+    #padding column
+    dfcCustom = dfcCustom.withColumn("padded_charge_amount",lpad(dfcCustom.charge_amount,6,"0"))
     
     
     #Create union
-    unionDF = df.union(dfcCustom)
+    unionDF = dfcCustom.union(df)
     unionDF.show()
     
     # Write to file with dd/mm/YY H:M:S
