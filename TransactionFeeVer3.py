@@ -70,7 +70,7 @@ def MyJoinTransform(glueContext, dfc) -> DynamicFrameCollection:
 def MyFileBeautificationTransform(glueContext, dfc) -> DynamicFrameCollection:
     
     from pyspark.sql import SparkSession
-    from pyspark.sql.functions import lpad 
+    from pyspark.sql.functions import lpad,sum 
     from datetime import date
     from datetime import datetime
     
@@ -78,20 +78,35 @@ def MyFileBeautificationTransform(glueContext, dfc) -> DynamicFrameCollection:
     
     
     #Create DF with headers
-    spark = SparkSession.builder.appName('TransactionFeed').getOrCreate()
+    spark = SparkSession.builder.appName('transactionFeedHeader').getOrCreate()
     simpleData = [("accountId","sortKey","chargeid","transactionid","charge_amount","snapshotSortkey","snapshotTransactionId","status","padded_charge_amount")]
     columns= ["accountId","sortKey","chargeid","transactionid","charge_amount","snapshotSortkey","snapshotTransactionId","status","padded_charge_amount"]
-    df = spark.createDataFrame(data = simpleData, schema = columns)
+    headerDF = spark.createDataFrame(data = simpleData, schema = columns)
     
     #padding column
-    dfcCustom = dfcCustom.withColumn("padded_charge_amount",lpad(dfcCustom.charge_amount,6,"0"))
+    dfcCustom = dfcCustom.withColumn("padded_charge_amount",
+    lpad(dfcCustom.charge_amount,6,"0"))
     
+    #aggregate functions
+    aggregatedTotal = dfcCustom.select(sum("charge_amount")).collect()[0][0] 
+    print("Printing sum of charge amount --> "+ str(aggregatedTotal))
+    trailerData = [("accountId","sortKey","chargeid","transactionid","charge_amount","snapshotSortkey","snapshotTransactionId","trailerStatus",aggregatedTotal)]
+    trailerDF = spark.createDataFrame(data = trailerData, schema = columns)
     
-    #Create union
-    unionDF = dfcCustom.union(df)
+    #Create union of header and body
+    unionDF = dfcCustom.union(headerDF)
+    print("Printing union of header and body --> ")
     unionDF.show()
     
+    #Create union header, body and trailer
+    withTrailerDF = unionDF.union(trailerDF)
+    print("Printing union of header, body and trailer --> ")
+    withTrailerDF.show()
+    
+    
+    
     # Write to file with dd/mm/YY H:M:S
+    
     now = datetime.now().strftime("%d%m%Y%H:%M:%S")
     oneFileTransform = unionDF.repartition(1)
     oneFileTransform.write.csv("s3://billing-account-glue-output/transaction/joinFeed/feedWithHeader/"+now+"/")
